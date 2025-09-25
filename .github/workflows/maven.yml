@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: build and test
+    name: Build and Test
     runs-on: ubuntu-latest
 
     steps:
@@ -19,8 +19,41 @@ jobs:
           java-version: "17"
           distribution: "temurin"
           cache: maven
-      - name: Perform the Unit Test Cases
-        run: mvn -B test
+      - name: Build and Test
+        run: mvn clean verify
+
+  sonarcloud:
+    name: SonarCloud Security Scan
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
+          cache: maven
+
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Run SonarCloud analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          mvn sonar:sonar \
+            -Dsonar.projectKey=${{ secrets.SONAR_ORGANIZATION }}_cicd-demo \
+            -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
+
   security:
     needs: test
     name: SA scan using snyk
