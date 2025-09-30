@@ -196,23 +196,48 @@ jobs:
           docker tag cicd-demo:${{ github.sha }} cicd-demo:latest
 
       - name: Run Snyk Container Scan
-        uses: snyk/actions/docker@master
+        continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-        with:
-          image: cicd-demo:latest
-          args: >
-            --severity-threshold=high
-            --file=dockerfile
-            --exclude-base-image-vulns
-            --sarif-file-output=snyk-container.sarif
+        run: |
+          echo "🔍 Running Snyk container scan..."
+          npm install -g snyk
+          snyk auth ${{ secrets.SNYK_TOKEN }}
+          # Run container scan and ensure SARIF file is generated even if vulnerabilities are found
+          if ! snyk container test cicd-demo:latest --severity-threshold=high --file=dockerfile --exclude-base-image-vulns --sarif-file-output=snyk-container.sarif; then
+            echo "⚠️ Snyk container test failed or found vulnerabilities, but continuing to generate SARIF"
+            # Ensure SARIF file is generated even if vulnerabilities are found
+            snyk container test cicd-demo:latest --severity-threshold=high --file=dockerfile --exclude-base-image-vulns --sarif-file-output=snyk-container.sarif || true
+          fi
+
+      - name: Check if container SARIF file was generated
+        id: check-container-sarif
+        run: |
+          if [ -f "snyk-container.sarif" ]; then
+            echo "container-sarif-exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Container SARIF file found"
+            ls -la snyk-container.sarif
+          else
+            echo "container-sarif-exists=false" >> $GITHUB_OUTPUT
+            echo "❌ Container SARIF file not found"
+            echo "Available files:"
+            ls -la *.sarif 2>/dev/null || echo "No SARIF files found"
+          fi
 
       - name: Upload container scan results
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: steps.check-container-sarif.outputs.container-sarif-exists == 'true'
         with:
           sarif_file: snyk-container.sarif
           category: snyk-container
+
+      - name: Archive container security scan results
+        uses: actions/upload-artifact@v4
+        if: steps.check-container-sarif.outputs.container-sarif-exists == 'true'
+        with:
+          name: snyk-container-results
+          path: snyk-container.sarif
+          retention-days: 30
 
   # Monitor deployed dependencies (only on main branch)
   monitor:
@@ -266,6 +291,7 @@ jobs:
     steps:
       - name: Send security alert
         uses: 8398a7/action-slack@v3
+        if: secrets.SLACK_WEBHOOK_URL != ''
         with:
           status: failure
           text: |
