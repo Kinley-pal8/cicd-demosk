@@ -39,11 +39,17 @@ jobs:
           cache: maven
 
       - name: Cache SonarCloud packages
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
+
+      - name: Build project first
+        run: mvn clean compile test-compile
+
+      - name: Run tests and generate coverage
+        run: mvn test jacoco:report
 
       - name: Run SonarCloud analysis
         env:
@@ -51,7 +57,7 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           mvn sonar:sonar \
-            -Dsonar.projectKey=Kinley-pal8_cicd-demosk
+            -Dsonar.projectKey=Kinley-pal8_cicd-demosk \
             -Dsonar.organization=${{ secrets.SONAR_ORGANIZATION }}
 
   security:

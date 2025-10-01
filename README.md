@@ -42,4 +42,42 @@ To run the GitHub Actions workflows successfully, you need to configure the foll
 5. Add the secret name and value
 6. Click **Add secret**
 
+## Troubleshooting
+
+### SonarCloud Issues
+
+If you encounter `InvalidProtocolBufferException` or other SonarCloud errors:
+
+1. **Run the troubleshooting script**:
+   ```bash
+   ./scripts/sonar-troubleshoot.sh
+   ```
+
+2. **Manual troubleshooting steps**:
+   ```bash
+   # Clean build and cache
+   mvn clean
+   rm -rf ~/.sonar/cache/*
+   
+   # Build project step by step
+   mvn compile
+   mvn test
+   mvn jacoco:report
+   mvn sonar:sonar
+   ```
+
+3. **Common fixes**:
+   - Ensure your `SONAR_TOKEN` is valid and not expired
+   - Verify your organization name matches your SonarCloud account
+   - Make sure your project key is correct in both `pom.xml` and `sonar-project.properties`
+   - Check that your SonarCloud project exists and you have permissions
+
+### Recent Fixes Applied
+
+- ✅ Updated SonarCloud Maven plugin to version 4.0.0.4121
+- ✅ Fixed organization configuration conflicts
+- ✅ Corrected coverage report paths
+- ✅ Added proper error handling in GitHub Actions
+- ✅ Fixed syntax errors in workflow files
+
 hi
